@@ -1,0 +1,24 @@
+{
+    "id": "scratchpadHelper",
+    "name": "Scratchpad Helper",
+    "description": "A compact view of standard and named MangoWM scratchpad windows",
+    "version": "1.1.0",
+    "author": "fluxwrk",
+    "type": "composite",
+    "capabilities": [
+        "daemon",
+        "dankbar-widget",
+        "control-center"
+    ],
+    "icon": "select_window",
+    "components": {
+        "daemon": "./ScratchpadDaemon.qml",
+        "widget": "./ScratchpadWidget.qml"
+    },
+    "settings": "./Settings.qml",
+    "requires_dms": ">=1.5.0",
+    "permissions": [
+        "settings_read",
+        "settings_write"
+    ]
+}
