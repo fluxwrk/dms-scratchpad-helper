@@ -7,12 +7,13 @@ StyledRect {
 
     required property var client
     property bool showApplicationIcon: true
+    property bool selected: false
     signal activated(var clientId)
 
     height: 142
     radius: Theme.cornerRadius
-    color: Theme.surfaceContainerHigh
-    border.width: client.type === "named" ? 1 : 0
+    color: selected ? Theme.withAlpha(Theme.primary, 0.12) : Theme.surfaceContainerHigh
+    border.width: selected ? 2 : (client.type === "named" ? 1 : 0)
     border.color: Theme.primary
 
     Column {

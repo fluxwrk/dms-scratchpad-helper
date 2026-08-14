@@ -5,6 +5,7 @@ import qs.Common
 import qs.Services
 import qs.Widgets
 import qs.Modules.Plugins
+import "ScratchpadNavigation.js" as ScratchpadNavigation
 
 PluginComponent {
     id: root
@@ -97,18 +98,145 @@ PluginComponent {
     popoutHeight: 360
 
     popoutContent: Component {
-        PopoutComponent {
+        Column {
             id: popout
-            headerText: "Scratchpad"
-            showCloseButton: true
+            property var closePopout: null
+            property var parentPopout: null
+            property var keyboardParentPopout: null
+            property string selectedClientId: ""
+            property int selectedVisualIndex: -1
+            readonly property int headerHeight: 40
+            readonly property int navigationColumns: width >= 360 ? 2 : 1
+            spacing: 0
+            focus: true
+
+            function resetSelection() {
+                selectedClientId = ScratchpadNavigation.firstActionableId(root.scratchpadClients);
+                selectedVisualIndex = ScratchpadNavigation.indexOfClient(root.scratchpadClients, selectedClientId);
+                Qt.callLater(() => picker.revealClient(selectedClientId));
+            }
+
+            function reconcileSelection() {
+                const selection = ScratchpadNavigation.reconcileSelection(root.scratchpadClients, selectedClientId, selectedVisualIndex);
+                selectedClientId = selection.clientId;
+                selectedVisualIndex = selection.index;
+                Qt.callLater(() => picker.revealClient(selectedClientId));
+            }
+
+            function moveSelection(direction) {
+                selectedClientId = ScratchpadNavigation.moveSelection(root.scratchpadClients, selectedClientId, direction, navigationColumns);
+                selectedVisualIndex = ScratchpadNavigation.indexOfClient(root.scratchpadClients, selectedClientId);
+                Qt.callLater(() => picker.revealClient(selectedClientId));
+            }
+
+            function takeKeyboardFocus() {
+                resetSelection();
+                Qt.callLater(() => popout.forceActiveFocus());
+            }
+
+            onParentPopoutChanged: {
+                if (keyboardParentPopout && keyboardParentPopout !== parentPopout)
+                    keyboardParentPopout.contentHandlesKeys = false;
+                keyboardParentPopout = parentPopout;
+                if (keyboardParentPopout)
+                    keyboardParentPopout.contentHandlesKeys = true;
+                if (parentPopout?.shouldBeVisible)
+                    takeKeyboardFocus();
+            }
+
+            Component.onDestruction: {
+                if (keyboardParentPopout)
+                    keyboardParentPopout.contentHandlesKeys = false;
+            }
+
+            Keys.onPressed: event => {
+                if (event.key === Qt.Key_Left)
+                    moveSelection("left");
+                else if (event.key === Qt.Key_Right)
+                    moveSelection("right");
+                else if (event.key === Qt.Key_Up)
+                    moveSelection("up");
+                else if (event.key === Qt.Key_Down)
+                    moveSelection("down");
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    if (selectedClientId !== "")
+                        picker.activateRequested(selectedClientId);
+                } else if (event.key === Qt.Key_Escape) {
+                    if (closePopout)
+                        closePopout();
+                } else {
+                    return;
+                }
+                event.accepted = true;
+            }
+
+            Connections {
+                target: popout.parentPopout
+
+                function onOpened() {
+                    popout.takeKeyboardFocus();
+                }
+            }
+
+            Connections {
+                target: root
+
+                function onScratchpadClientsChanged() {
+                    popout.reconcileSelection();
+                }
+            }
+
+            Item {
+                width: parent.width
+                height: popout.headerHeight
+
+                StyledText {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spacingS
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Scratchpad"
+                    color: Theme.surfaceText
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.weight: Font.Medium
+                }
+
+                Rectangle {
+                    width: 32
+                    height: 32
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    radius: 16
+                    color: closeArea.containsMouse ? Theme.errorHover : Theme.withAlpha(Theme.errorHover, 0)
+
+                    DankIcon {
+                        anchors.centerIn: parent
+                        name: "close"
+                        size: Theme.iconSize - 4
+                        color: closeArea.containsMouse ? Theme.error : Theme.surfaceText
+                    }
+
+                    MouseArea {
+                        id: closeArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onPressed: {
+                            if (popout.closePopout)
+                                popout.closePopout();
+                        }
+                    }
+                }
+            }
 
             ScratchpadPicker {
+                id: picker
                 width: parent.width
                 height: root.popoutHeight - popout.headerHeight - Theme.spacingL
                 clients: root.scratchpadClients
                 isMango: root.isMango
                 serviceAvailable: root.serviceAvailable
                 showApplicationIcons: root.showApplicationIcons
+                selectedClientId: popout.selectedClientId
                 onActivateRequested: clientId => root.requestClientActivation(clientId)
             }
         }
