@@ -11,7 +11,7 @@ function textOr(value, fallback) {
     return text.length > 0 ? text : fallback;
 }
 
-function normalizeClient(client) {
+function normalizeClient(client, previews) {
     if (!client || typeof client !== "object")
         return null;
 
@@ -20,12 +20,14 @@ function normalizeClient(client) {
     if (!standard && !named)
         return null;
 
+    const clientId = valueOr(client.id, "");
+    const preview = previews && previews[String(clientId)] ? previews[String(clientId)] : null;
     return {
-        "clientId": valueOr(client.id, ""),
+        "clientId": clientId,
         "pid": valueOr(client.pid, 0),
         "foreignToplevelId": textOr(client.foreign_toplevel_id, ""),
         "appId": textOr(client.appid, "Unknown application"),
-        "title": textOr(client.title, "Untitled window"),
+        "title": textOr(client.title, "Untitled"),
         "monitor": textOr(client.monitor, ""),
         "type": named ? "named" : "standard",
         "isVisible": client.is_visible === true,
@@ -33,17 +35,20 @@ function normalizeClient(client) {
         "x": valueOr(client.x, 0),
         "y": valueOr(client.y, 0),
         "width": valueOr(client.width, 0),
-        "height": valueOr(client.height, 0)
+        "height": valueOr(client.height, 0),
+        "previewPath": preview?.path || "",
+        "previewUrl": preview?.url || "",
+        "hasPreview": !!(preview?.path && preview?.url)
     };
 }
 
-function normalizeClients(clients) {
+function normalizeClients(clients, previews) {
     if (!Array.isArray(clients))
         return [];
 
     const result = [];
     for (let i = 0; i < clients.length; ++i) {
-        const normalized = normalizeClient(clients[i]);
+        const normalized = normalizeClient(clients[i], previews);
         if (normalized)
             result.push(normalized);
     }

@@ -9,6 +9,7 @@ Item {
     property bool isMango: false
     property bool serviceAvailable: false
     property bool showApplicationIcons: true
+    signal activateRequested(var clientId)
 
     readonly property string stateText: !isMango ? "Scratchpad Helper requires MangoWM." : (!serviceAvailable ? "Mango service is unavailable." : "Scratchpad is empty")
     readonly property string stateIcon: !isMango ? "desktop_access_disabled" : (!serviceAvailable ? "link_off" : "select_window")
@@ -58,6 +59,7 @@ Item {
                     width: cardFlow.width >= 360 ? (cardFlow.width - cardFlow.spacing) / 2 : cardFlow.width
                     client: modelData
                     showApplicationIcon: root.showApplicationIcons
+                    onActivated: clientId => root.activateRequested(clientId)
                 }
             }
         }

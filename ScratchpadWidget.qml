@@ -22,6 +22,15 @@ PluginComponent {
     readonly property bool hideBarWhenEmpty: SettingsData.getPluginSetting(scratchpadPluginId, "hideBarWhenEmpty", false)
     readonly property int scratchpadCount: scratchpadClients.length
 
+    function requestClientActivation(clientId) {
+        const request = {
+            "clientId": clientId,
+            "token": Date.now()
+        };
+        PluginService.setGlobalVar(scratchpadPluginId, "activateRequest", request);
+        closePopout();
+    }
+
     function isFocusedScreenWidget() {
         if (!root.parentScreen || !root.axis)
             return false;
@@ -100,6 +109,7 @@ PluginComponent {
                 isMango: root.isMango
                 serviceAvailable: root.serviceAvailable
                 showApplicationIcons: root.showApplicationIcons
+                onActivateRequested: clientId => root.requestClientActivation(clientId)
             }
         }
     }
@@ -117,6 +127,7 @@ PluginComponent {
             isMango: root.isMango
             serviceAvailable: root.serviceAvailable
             showApplicationIcons: root.showApplicationIcons
+            onActivateRequested: clientId => root.requestClientActivation(clientId)
         }
     }
 }
