@@ -66,7 +66,7 @@ PluginComponent {
             StyledText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.scratchpadCount
-                color: Theme.surfaceText
+                color: root.isMango && root.serviceAvailable ? Theme.surfaceText : Theme.onSurfaceVariant
                 font.pixelSize: Theme.fontSizeMedium
                 font.weight: Font.Medium
             }
@@ -87,7 +87,7 @@ PluginComponent {
             StyledText {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.scratchpadCount
-                color: Theme.surfaceText
+                color: root.isMango && root.serviceAvailable ? Theme.surfaceText : Theme.onSurfaceVariant
                 font.pixelSize: Theme.fontSizeSmall
                 font.weight: Font.Medium
             }
@@ -95,7 +95,7 @@ PluginComponent {
     }
 
     popoutWidth: 440
-    popoutHeight: 360
+    popoutHeight: 370
 
     popoutContent: Component {
         Column {
@@ -204,6 +204,7 @@ PluginComponent {
                     width: 32
                     height: 32
                     anchors.right: parent.right
+                    anchors.rightMargin: Theme.spacingXS
                     anchors.verticalCenter: parent.verticalCenter
                     radius: 16
                     color: closeArea.containsMouse ? Theme.errorHover : Theme.withAlpha(Theme.errorHover, 0)
@@ -247,15 +248,44 @@ PluginComponent {
     ccWidgetSecondaryText: !isMango ? "Requires MangoWM" : (serviceAvailable ? scratchpadCount + (scratchpadCount === 1 ? " window" : " windows") : "Mango service unavailable")
     ccWidgetIsActive: isMango && serviceAvailable && scratchpadCount > 0
 
-    ccDetailHeight: 320
+    ccDetailHeight: 350
     ccDetailContent: Component {
-        ScratchpadPicker {
-            implicitHeight: 300
-            clients: root.scratchpadClients
-            isMango: root.isMango
-            serviceAvailable: root.serviceAvailable
-            showApplicationIcons: root.showApplicationIcons
-            onActivateRequested: clientId => root.requestClientActivation(clientId)
+        StyledRect {
+            implicitHeight: 330
+            radius: Theme.cornerRadius
+            color: Theme.nestedSurface
+            border.color: Theme.outlineMedium
+            border.width: Theme.layerOutlineWidth
+
+            Column {
+                anchors.fill: parent
+                spacing: 0
+
+                Item {
+                    width: parent.width
+                    height: 40
+
+                    StyledText {
+                        anchors.left: parent.left
+                        anchors.leftMargin: Theme.spacingM
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Scratchpad"
+                        color: Theme.surfaceText
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.Medium
+                    }
+                }
+
+                ScratchpadPicker {
+                    width: parent.width
+                    height: parent.height - 40 - Theme.spacingS
+                    clients: root.scratchpadClients
+                    isMango: root.isMango
+                    serviceAvailable: root.serviceAvailable
+                    showApplicationIcons: root.showApplicationIcons
+                    onActivateRequested: clientId => root.requestClientActivation(clientId)
+                }
+            }
         }
     }
 }

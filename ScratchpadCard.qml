@@ -10,20 +10,29 @@ StyledRect {
     property bool selected: false
     signal activated(var clientId)
 
-    height: 142
+    readonly property bool actionable: client.type === "standard"
+    readonly property bool hovered: actionable && cardMouseArea.containsMouse
+
+    height: 148
     radius: Theme.cornerRadius
-    color: selected ? Theme.withAlpha(Theme.primary, 0.12) : Theme.surfaceContainerHigh
-    border.width: selected ? 2 : (client.type === "named" ? 1 : 0)
-    border.color: Theme.primary
+    color: selected ? Theme.primaryPressed : (hovered ? Theme.primaryHoverLight : Theme.withAlpha(Theme.surfaceContainerHigh, Theme.popupTransparency))
+    border.width: selected ? 2 : (client.type === "named" ? Theme.layerOutlineWidth : 0)
+    border.color: selected ? Theme.primary : Theme.outlineMedium
+
+    DankRipple {
+        id: rippleLayer
+        rippleColor: Theme.surfaceText
+        cornerRadius: root.radius
+    }
 
     Column {
         anchors.fill: parent
-        anchors.margins: Theme.spacingM
+        anchors.margins: Theme.spacingS
         spacing: Theme.spacingS
 
         Item {
             width: parent.width
-            height: 70
+            height: 90
 
             StyledRect {
                 id: previewFrame
@@ -46,7 +55,7 @@ StyledRect {
             }
 
             ScratchpadAppIcon {
-                id: appIcon
+                id: previewAppIcon
                 anchors.centerIn: parent
                 width: Theme.iconSizeLarge * 1.5
                 height: width
@@ -68,46 +77,68 @@ StyledRect {
                 visible: root.client.type === "named"
                 width: namedText.implicitWidth + Theme.spacingS * 2
                 height: namedText.implicitHeight + Theme.spacingXS * 2
-                radius: Theme.cornerRadius
-                color: Theme.primaryContainer
+                radius: height / 2
+                color: Theme.secondaryContainer
 
                 StyledText {
                     id: namedText
                     anchors.centerIn: parent
                     text: "Named"
-                    color: Theme.onPrimary
+                    color: Theme.surfaceText
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.Medium
                 }
             }
         }
 
-        StyledText {
+        Row {
             width: parent.width
-            text: appIcon.appName
-            color: Theme.surfaceText
-            font.pixelSize: Theme.fontSizeMedium
-            font.weight: Font.Medium
-            elide: Text.ElideRight
-            maximumLineCount: 1
-        }
+            height: 34
+            spacing: Theme.spacingS
 
-        StyledText {
-            width: parent.width
-            text: root.client.title || "Untitled"
-            color: Theme.surfaceTextSecondary
-            font.pixelSize: Theme.fontSizeSmall
-            elide: Text.ElideRight
-            maximumLineCount: 1
+            ScratchpadAppIcon {
+                id: metadataAppIcon
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.iconSize + Theme.spacingXS
+                height: width
+                appId: root.client.appId
+                visible: root.showApplicationIcon
+            }
+
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - (metadataAppIcon.visible ? metadataAppIcon.width + parent.spacing : 0)
+                spacing: Theme.spacingXXS
+
+                StyledText {
+                    width: parent.width
+                    text: metadataAppIcon.appName
+                    color: Theme.surfaceText
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.weight: Font.Medium
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                }
+
+                StyledText {
+                    width: parent.width
+                    text: root.client.title || "Untitled"
+                    color: Theme.surfaceVariantText
+                    font.pixelSize: Theme.fontSizeSmall
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                }
+            }
         }
     }
 
     MouseArea {
         id: cardMouseArea
         anchors.fill: parent
-        enabled: root.client.type === "standard"
+        enabled: root.actionable
         hoverEnabled: true
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onPressed: mouse => rippleLayer.trigger(mouse.x, mouse.y)
         onClicked: root.activated(root.client.clientId)
     }
 }

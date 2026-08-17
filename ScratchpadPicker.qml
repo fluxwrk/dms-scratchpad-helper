@@ -12,7 +12,8 @@ Item {
     property var selectedClientId: ""
     signal activateRequested(var clientId)
 
-    readonly property string stateText: !isMango ? "Scratchpad Helper requires MangoWM." : (!serviceAvailable ? "Mango service is unavailable." : "Scratchpad is empty")
+    readonly property string stateTitle: !isMango ? "MangoWM required" : (!serviceAvailable ? "Mango service unavailable" : "No scratchpad windows")
+    readonly property string stateText: !isMango ? "Scratchpad Helper currently supports MangoWM." : (!serviceAvailable ? "DMS is not connected to Mango's IPC socket." : "Stashed windows will appear here.")
     readonly property string stateIcon: !isMango ? "desktop_access_disabled" : (!serviceAvailable ? "link_off" : "select_window")
 
     function revealClient(clientId) {
@@ -42,6 +43,7 @@ Item {
         Column {
             anchors.centerIn: parent
             spacing: Theme.spacingS
+            width: Math.min(parent.width - Theme.spacingXL * 2, 300)
 
             DankIcon {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -51,26 +53,41 @@ Item {
             }
 
             StyledText {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: root.stateText
-                color: Theme.onSurfaceVariant
+                width: parent.width
+                text: root.stateTitle
+                color: Theme.surfaceText
                 font.pixelSize: Theme.fontSizeMedium
+                font.weight: Font.Medium
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+
+            StyledText {
+                width: parent.width
+                text: root.stateText
+                color: Theme.surfaceVariantText
+                font.pixelSize: Theme.fontSizeSmall
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
             }
         }
     }
 
-    Flickable {
+    DankFlickable {
         id: flickable
         anchors.fill: parent
         visible: root.clients.length > 0
-        contentHeight: cardFlow.implicitHeight
+        contentHeight: cardFlow.implicitHeight + Theme.spacingS
+        contentWidth: width
         clip: true
         boundsBehavior: Flickable.StopAtBounds
 
         Flow {
             id: cardFlow
-            width: parent.width
-            spacing: Theme.spacingM
+            x: Theme.spacingS
+            y: Theme.spacingXS
+            width: parent.width - Theme.spacingL
+            spacing: Theme.spacingS
 
             Repeater {
                 id: cardRepeater
