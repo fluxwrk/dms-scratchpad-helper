@@ -2,7 +2,7 @@
     "id": "scratchpadHelper",
     "name": "Scratchpad Helper",
     "description": "A compact view of standard and named MangoWM scratchpad windows",
-    "version": "1.3.2",
+    "version": "1.3.3",
     "author": "fluxwrk",
     "type": "composite",
     "capabilities": [

@@ -11,7 +11,7 @@ function textOr(value, fallback) {
     return text.length > 0 ? text : fallback;
 }
 
-function normalizeClient(client, previews) {
+function normalizeClient(client, previews, namedAssociations) {
     if (!client || typeof client !== "object")
         return null;
 
@@ -22,6 +22,7 @@ function normalizeClient(client, previews) {
 
     const clientId = valueOr(client.id, "");
     const preview = previews && previews[String(clientId)] ? previews[String(clientId)] : null;
+    const association = named && namedAssociations ? namedAssociations[String(clientId)] : null;
     return {
         "clientId": clientId,
         "pid": valueOr(client.pid, 0),
@@ -30,6 +31,9 @@ function normalizeClient(client, previews) {
         "title": textOr(client.title, "Untitled"),
         "monitor": textOr(client.monitor, ""),
         "type": named ? "named" : "standard",
+        "actionable": standard || !!association,
+        "namedStatus": named ? (association ? "managed" : "external") : "",
+        "managedDefinitionId": association?.definitionId || "",
         "isVisible": client.is_visible === true,
         "isMinimized": client.is_minimized === true,
         "x": valueOr(client.x, 0),
@@ -42,13 +46,13 @@ function normalizeClient(client, previews) {
     };
 }
 
-function normalizeClients(clients, previews) {
+function normalizeClients(clients, previews, namedAssociations) {
     if (!Array.isArray(clients))
         return [];
 
     const result = [];
     for (let i = 0; i < clients.length; ++i) {
-        const normalized = normalizeClient(clients[i], previews);
+        const normalized = normalizeClient(clients[i], previews, namedAssociations);
         if (normalized)
             result.push(normalized);
     }

@@ -21,6 +21,9 @@ const result = context.normalizeClients([
 assert.equal(result.length, 2);
 assert.equal(result[0].type, "standard");
 assert.equal(result[1].type, "named");
+assert.equal(result[0].actionable, true);
+assert.equal(result[1].actionable, false);
+assert.equal(result[1].namedStatus, "external");
 assert.equal(result[0].foreignToplevelId, "");
 assert.equal(result[0].isVisible, false);
 assert.equal(context.normalizeClient({ is_scratchpad: true }).appId, "Unknown application");
@@ -40,5 +43,12 @@ assert.equal(withPreview[0].previewPath, "/cache/client-11.png");
 assert.equal(withPreview[1].previewPath, "/cache/client-12.png");
 assert.equal(withPreview[2].hasPreview, false);
 assert.equal(withPreview[2].previewPath, "");
+
+const managed = context.normalizeClients([
+    { id: 21, appid: "ghostty", title: "fish", is_namedscratchpad: true }
+], null, {"21": {definitionId: "ghostty-id"}});
+assert.equal(managed[0].actionable, true);
+assert.equal(managed[0].namedStatus, "managed");
+assert.equal(managed[0].managedDefinitionId, "ghostty-id");
 
 console.log("model-contract: PASS");

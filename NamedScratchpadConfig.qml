@@ -26,6 +26,7 @@ Item {
     readonly property bool managerEnabled: SettingsData.getPluginSetting(pluginId, "namedManagerEnabled", false)
     property var definitionStore: pluginSettings.namedManagerStore === undefined ? null : pluginSettings.namedManagerStore
     readonly property string knownHash: SettingsData.getPluginSetting(pluginId, "namedManagerGeneratedHash", "")
+    readonly property string appliedHash: SettingsData.getPluginSetting(pluginId, "namedManagerAppliedHash", "")
 
     property string status: "Checking configuration…"
     property string detail: ""
@@ -85,6 +86,8 @@ Item {
         if (state.state === "invalid")
             storeError = "Some stored named scratchpads need attention.";
         pendingChanges = state.state === "pending";
+        generatedValid = state.state === "current" && includeConfigured;
+        reloadNeeded = generatedValid && appliedHash !== knownHash;
     }
 
     function refresh() {
@@ -349,6 +352,7 @@ Item {
                     return;
                 }
                 root.reloadNeeded = false;
+                SettingsData.setPluginSetting(root.pluginId, "namedManagerAppliedHash", root.knownHash);
                 root.status = "Reload requested";
                 root.detail = "Mango is processing its configuration.";
                 root._finalizeOperation(true);
@@ -388,6 +392,7 @@ Item {
     }
     onDefinitionStoreChanged: _updateSummary()
     onKnownHashChanged: _updateSummary()
+    onAppliedHashChanged: _updateSummary()
 
     FileView {
         id: targetReader

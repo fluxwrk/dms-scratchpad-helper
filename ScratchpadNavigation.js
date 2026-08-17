@@ -7,7 +7,7 @@ function clientId(client) {
 }
 
 function isActionable(client) {
-    return client?.type === "standard" && clientId(client) !== "";
+    return client?.actionable === true && clientId(client) !== "";
 }
 
 function firstActionableId(clients) {

@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import Qt.labs.folderlistmodel
 import Quickshell.Io
 import qs.Common
@@ -6,6 +7,8 @@ import qs.Services
 import qs.Modules.Plugins
 import "PreviewCache.js" as PreviewCache
 import "ScratchpadModel.js" as ScratchpadModel
+import "NamedScratchpadDefinitions.js" as NamedDefinitions
+import "NamedScratchpadRuntime.js" as NamedRuntime
 import "StashWorkflow.js" as StashWorkflow
 
 PluginComponent {
@@ -25,6 +28,21 @@ PluginComponent {
     property bool mmsgAvailable: false
     property var previewEntries: ({})
     property var suppressedPreviewIds: ({})
+    property string namedConfigContent: ""
+    property bool namedConfigReadable: false
+
+    readonly property url namedConfigUrl: StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/mango/scratchpad-helper.conf"
+    readonly property var namedPluginSettings: SettingsData.getPluginSettingsForPlugin(pluginId)
+    readonly property var namedDefinitionStore: namedPluginSettings.namedManagerStore === undefined ? null : namedPluginSettings.namedManagerStore
+    readonly property bool namedManagerEnabled: SettingsData.getPluginSetting(pluginId, "namedManagerEnabled", false)
+    readonly property string namedGeneratedHash: SettingsData.getPluginSetting(pluginId, "namedManagerGeneratedHash", "")
+    readonly property string namedAppliedHash: SettingsData.getPluginSetting(pluginId, "namedManagerAppliedHash", "")
+    readonly property bool namedConfigSynchronized: {
+        if (!namedConfigReadable || !namedGeneratedHash || namedAppliedHash !== namedGeneratedHash)
+            return false;
+        const state = NamedDefinitions.generatedContentState(namedDefinitionStore, namedConfigContent, namedGeneratedHash);
+        return state.state === "current";
+    }
 
     readonly property bool previewsEnabled: SettingsData.getPluginSetting("scratchpadHelper", "cachedPreviews", true)
 
@@ -40,7 +58,9 @@ PluginComponent {
         const isMango = CompositorService.isMango === true;
         const serviceAvailable = isMango && MangoService.available === true;
         const source = serviceAvailable && Array.isArray(MangoService.windows) ? MangoService.windows : [];
-        const scratchpads = ScratchpadModel.normalizeClients(source, previewEntries);
+        const namedAssociations = NamedRuntime.classify(source, namedDefinitionStore,
+            namedManagerEnabled, namedConfigSynchronized, NamedDefinitions);
+        const scratchpads = ScratchpadModel.normalizeClients(source, previewEntries, namedAssociations);
 
         pluginService?.setGlobalVar(pluginId, "isMango", isMango);
         pluginService?.setGlobalVar(pluginId, "serviceAvailable", serviceAvailable);
@@ -306,8 +326,27 @@ PluginComponent {
         const id = PreviewCache.normalizeClientId(clientId);
         if (!id || !CompositorService.isMango || !MangoService.available)
             return false;
-        const exists = (MangoService.windows || []).some(client => String(client?.id) === id && client?.is_scratchpad === true && client?.is_namedscratchpad !== true);
-        if (!exists)
+        const source = MangoService.windows || [];
+        const client = source.find(candidate => String(candidate?.id) === id);
+        if (!client)
+            return false;
+
+        if (client.is_namedscratchpad === true) {
+            const associations = NamedRuntime.classify(source, namedDefinitionStore,
+                namedManagerEnabled, namedConfigSynchronized, NamedDefinitions);
+            const association = associations[id];
+            if (!association?.command)
+                return false;
+            MangoService.dispatch(association.command, reply => {
+                let success = false;
+                try { success = JSON.parse(reply).success === true; } catch (e) {}
+                if (!success)
+                    log.warn("Could not toggle managed named scratchpad", association.definitionId, reply || "no reply");
+            });
+            return true;
+        }
+
+        if (client.is_scratchpad !== true)
             return false;
 
         // Mango client_active restores the exact minimized target, selects its
@@ -321,6 +360,31 @@ PluginComponent {
                 log.warn("Could not restore and focus Mango client", id, reply || "no reply");
         });
         return true;
+    }
+
+    onNamedDefinitionStoreChanged: rebuildModel()
+    onNamedManagerEnabledChanged: rebuildModel()
+    onNamedGeneratedHashChanged: rebuildModel()
+    onNamedAppliedHashChanged: rebuildModel()
+    onNamedConfigSynchronizedChanged: rebuildModel()
+
+    FileView {
+        id: namedConfigReader
+        path: root.namedConfigUrl
+        blockLoading: true
+        printErrors: false
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            root.namedConfigContent = text();
+            root.namedConfigReadable = true;
+            root.rebuildModel();
+        }
+        onLoadFailed: error => {
+            root.namedConfigContent = "";
+            root.namedConfigReadable = false;
+            root.rebuildModel();
+        }
     }
 
     FolderListModel {
@@ -377,6 +441,7 @@ PluginComponent {
             if (changedPluginId !== root.pluginId)
                 return;
             root.publishStatus();
+            root.rebuildModel();
         }
 
         function onGlobalVarChanged(changedPluginId, varName) {

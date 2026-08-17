@@ -10,7 +10,7 @@ StyledRect {
     property bool selected: false
     signal activated(var clientId)
 
-    readonly property bool actionable: client.type === "standard"
+    readonly property bool actionable: client.actionable === true
     readonly property bool hovered: actionable && cardMouseArea.containsMouse
 
     height: 148
@@ -83,7 +83,7 @@ StyledRect {
                 StyledText {
                     id: namedText
                     anchors.centerIn: parent
-                    text: "Named"
+                    text: root.client.namedStatus === "managed" ? "Named · Managed" : "Named · External"
                     color: Theme.surfaceText
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.Medium
