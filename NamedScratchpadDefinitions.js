@@ -272,3 +272,99 @@ function detectsExpectedInclude(content, absoluteTargetPath) {
 function defaultStore() {
     return {"schemaVersion": SCHEMA_VERSION, "definitions": []};
 }
+
+function loadStore(rawStore) {
+    if (rawStore === undefined || rawStore === null)
+        return {"valid": true, "store": defaultStore(), "error": ""};
+    if (typeof rawStore !== "object" || Array.isArray(rawStore) ||
+            Number(rawStore.schemaVersion) !== SCHEMA_VERSION || !Array.isArray(rawStore.definitions))
+        return {"valid": false, "store": null, "error": "Stored named scratchpads could not be read."};
+    return {"valid": true, "store": {"schemaVersion": SCHEMA_VERSION, "definitions": rawStore.definitions.slice()}, "error": ""};
+}
+
+function generateId(randomFunction, now) {
+    const random = typeof randomFunction === "function" ? randomFunction : Math.random;
+    const timestamp = Number.isFinite(now) ? Math.floor(now) : Date.now();
+    let parts = [];
+    for (let i = 0; i < 4; ++i)
+        parts.push(Math.floor(random() * 0x100000000).toString(16).padStart(8, "0"));
+    return "ns-" + timestamp.toString(36) + "-" + parts.join("");
+}
+
+function nextCreationOrder(definitions) {
+    return definitions.reduce(function(maximum, definition) {
+        const value = Number(definition && definition.creationOrder);
+        return Number.isSafeInteger(value) && value >= 0 ? Math.max(maximum, value) : maximum;
+    }, -1) + 1;
+}
+
+function mutationResult(definitions) {
+    const validated = validateDefinitions(definitions);
+    if (!validated.valid)
+        return {"valid": false, "store": null, "definitions": validated.definitions, "errors": validated.errors, "warnings": validated.warnings};
+    return {"valid": true, "store": {"schemaVersion": SCHEMA_VERSION, "definitions": validated.definitions}, "definitions": validated.definitions, "errors": [], "warnings": validated.warnings};
+}
+
+function createDefinition(rawStore, fields, idFactory) {
+    const loaded = loadStore(rawStore);
+    if (!loaded.valid)
+        return {"valid": false, "store": null, "definitions": [], "errors": [{"field": "store", "code": "malformed", "message": loaded.error}], "warnings": []};
+    const definitions = loaded.store.definitions.slice();
+    const id = typeof idFactory === "function" ? String(idFactory()) : generateId();
+    const candidate = Object.assign({}, fields || {}, {"id": id, "creationOrder": nextCreationOrder(definitions)});
+    definitions.push(candidate);
+    return mutationResult(definitions);
+}
+
+function updateDefinition(rawStore, id, fields) {
+    const loaded = loadStore(rawStore);
+    if (!loaded.valid)
+        return {"valid": false, "store": null, "definitions": [], "errors": [{"field": "store", "code": "malformed", "message": loaded.error}], "warnings": []};
+    let found = false;
+    const definitions = loaded.store.definitions.map(function(definition) {
+        if (!definition || String(definition.id) !== String(id))
+            return definition;
+        found = true;
+        return Object.assign({}, definition, fields || {}, {"id": definition.id, "creationOrder": definition.creationOrder});
+    });
+    if (!found)
+        return {"valid": false, "store": null, "definitions": definitions, "errors": [{"id": id, "field": "id", "code": "not-found", "message": "The named scratchpad no longer exists."}], "warnings": []};
+    return mutationResult(definitions);
+}
+
+function deleteDefinition(rawStore, id) {
+    const loaded = loadStore(rawStore);
+    if (!loaded.valid)
+        return {"valid": false, "store": null, "definitions": [], "errors": [{"field": "store", "code": "malformed", "message": loaded.error}], "warnings": []};
+    let removed = false;
+    const definitions = loaded.store.definitions.filter(function(definition) {
+        const matches = definition && String(definition.id) === String(id);
+        removed = removed || matches;
+        return !matches;
+    });
+    if (!removed)
+        return {"valid": false, "store": null, "definitions": definitions, "errors": [{"id": id, "field": "id", "code": "not-found", "message": "The named scratchpad no longer exists."}], "warnings": []};
+    return mutationResult(definitions);
+}
+
+function setDefinitionEnabled(rawStore, id, enabled) {
+    return updateDefinition(rawStore, id, {"enabled": enabled === true});
+}
+
+function expectedContent(rawStore) {
+    const loaded = loadStore(rawStore);
+    if (!loaded.valid)
+        return {"valid": false, "content": "", "errors": [{"field": "store", "code": "malformed", "message": loaded.error}]};
+    return serializeDefinitions(loaded.store.definitions);
+}
+
+function generatedContentState(rawStore, existingContent, knownHash) {
+    const ownership = ownershipState(existingContent, knownHash);
+    if (ownership.state === "conflict")
+        return {"state": "conflict", "pending": false, "expectedContent": "", "errors": []};
+    const expected = expectedContent(rawStore);
+    if (!expected.valid)
+        return {"state": "invalid", "pending": false, "expectedContent": "", "errors": expected.errors};
+    const pending = existingContent === null || existingContent === undefined || String(existingContent) !== expected.content;
+    return {"state": pending ? "pending" : "current", "pending": pending, "expectedContent": expected.content, "errors": []};
+}

@@ -11,6 +11,7 @@ PluginSettings {
     readonly property bool showStatusWarning: !CompositorService.isMango || !MangoService.available
     property bool showNamedInfo: false
     property bool showNamedDiagnostics: false
+    property bool showNamedManager: false
 
     readonly property string namedDiagnosticText: String(namedConfig.errorText || namedConfig.targetScanError || namedConfig.mainScanError).trim()
     readonly property bool namedHasDiagnostics: namedDiagnosticText.length > 0
@@ -27,6 +28,11 @@ PluginSettings {
         if (!namedHasDiagnostics)
             showNamedDiagnostics = false;
     }
+
+    Column {
+        width: parent.width
+        spacing: Theme.spacingM
+        visible: !root.showNamedManager
 
     StyledText {
         width: parent.width
@@ -271,6 +277,14 @@ PluginSettings {
                 }
             }
 
+            StyledText {
+                width: parent.width
+                visible: namedConfig.managerEnabled
+                text: namedConfig.definitionCount + (namedConfig.definitionCount === 1 ? " named scratchpad" : " named scratchpads")
+                color: Theme.surfaceVariantText
+                font.pixelSize: Theme.fontSizeSmall
+            }
+
             StyledRect {
                 width: parent.width
                 height: includeColumn.implicitHeight + Theme.spacingS * 2
@@ -307,6 +321,13 @@ PluginSettings {
                 width: parent.width
                 spacing: Theme.spacingS
                 visible: namedConfig.managerEnabled
+
+                DankButton {
+                    text: "Manage"
+                    iconName: "settings"
+                    enabled: !namedConfig.busy
+                    onClicked: root.showNamedManager = true
+                }
 
                 DankButton {
                     text: "Copy"
@@ -355,6 +376,17 @@ PluginSettings {
                     wrapMode: Text.WrapAnywhere
                 }
             }
+        }
+    }
+    }
+
+    NamedScratchpadManager {
+        width: parent.width
+        visible: root.showNamedManager
+        onStoreChanged: store => namedConfig.definitionStore = store
+        onCloseRequested: {
+            root.showNamedManager = false;
+            namedConfig.refresh();
         }
     }
 }

@@ -24,7 +24,7 @@ Item {
     readonly property url mainConfigFileUrl: toFileUrl(mainConfigPath)
     readonly property var pluginSettings: SettingsData.getPluginSettingsForPlugin(pluginId)
     readonly property bool managerEnabled: SettingsData.getPluginSetting(pluginId, "namedManagerEnabled", false)
-    readonly property var definitionStore: pluginSettings.namedManagerStore === undefined ? null : pluginSettings.namedManagerStore
+    property var definitionStore: pluginSettings.namedManagerStore === undefined ? null : pluginSettings.namedManagerStore
     readonly property string knownHash: SettingsData.getPluginSetting(pluginId, "namedManagerGeneratedHash", "")
 
     property string status: "Checking configuration…"
@@ -43,6 +43,9 @@ Item {
     property bool generatedValid: false
     property bool reloadNeeded: false
     property string ownership: "unknown"
+    property bool pendingChanges: false
+    property int definitionCount: 0
+    property string storeError: ""
 
     property string _candidatePath: ""
     property string _candidateContent: ""
@@ -62,11 +65,26 @@ Item {
     }
 
     function storedDefinitions() {
-        if (definitionStore === null)
-            return [];
-        if (Number(definitionStore.schemaVersion) !== Definitions.SCHEMA_VERSION || !Array.isArray(definitionStore.definitions))
+        const loaded = Definitions.loadStore(definitionStore);
+        if (!loaded.valid)
             return null;
-        return definitionStore.definitions;
+        return loaded.store.definitions;
+    }
+
+    function recomputeContentState() {
+        const definitions = storedDefinitions();
+        definitionCount = definitions === null ? 0 : definitions.length;
+        storeError = definitions === null ? "Stored named scratchpads could not be read." : "";
+        if (!targetScanned) {
+            pendingChanges = false;
+            return;
+        }
+        const state = Definitions.generatedContentState(definitionStore,
+            targetExists ? targetContent : null, knownHash);
+        ownership = state.state === "conflict" ? "conflict" : ownership;
+        if (state.state === "invalid")
+            storeError = "Some stored named scratchpads need attention.";
+        pendingChanges = state.state === "pending";
     }
 
     function refresh() {
@@ -81,6 +99,7 @@ Item {
     }
 
     function _updateSummary() {
+        recomputeContentState();
         if (!managerEnabled) {
             status = "Manager disabled";
             detail = "";
@@ -101,6 +120,11 @@ Item {
             detail = "Scratchpad Helper won't overwrite your changes.";
             return;
         }
+        if (storeError) {
+            status = "Definitions need attention";
+            detail = storeError;
+            return;
+        }
         if (errorText) {
             status = errorSummary || "Configuration error";
             detail = "Review the details, correct the problem, and try again.";
@@ -114,6 +138,11 @@ Item {
         if (!targetExists) {
             status = "Generate config";
             detail = "Create the Scratchpad Helper config file.";
+            return;
+        }
+        if (pendingChanges) {
+            status = "Changes ready to generate";
+            detail = "Generate the config to apply your definition changes.";
             return;
         }
         status = "Configuration ready";
@@ -253,6 +282,7 @@ Item {
         targetExists = true;
         targetContent = _candidateContent;
         ownership = "owned";
+        pendingChanges = false;
         try {
             SettingsData.setPluginSetting(pluginId, "namedManagerGeneratedHash", _transactionHash);
         } catch (error) {
@@ -356,6 +386,8 @@ Item {
             SettingsData.setPluginSetting(pluginId, "namedManagerStore", Definitions.defaultStore());
         _updateSummary();
     }
+    onDefinitionStoreChanged: _updateSummary()
+    onKnownHashChanged: _updateSummary()
 
     FileView {
         id: targetReader
