@@ -279,6 +279,7 @@ PluginComponent {
                 ScratchpadPicker {
                     width: parent.width
                     height: parent.height - 40 - Theme.spacingS
+                    maximumContentWidth: root.popoutWidth
                     clients: root.scratchpadClients
                     isMango: root.isMango
                     serviceAvailable: root.serviceAvailable

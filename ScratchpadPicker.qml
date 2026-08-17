@@ -9,6 +9,7 @@ Item {
     property bool isMango: false
     property bool serviceAvailable: false
     property bool showApplicationIcons: true
+    property real maximumContentWidth: 0
     property var selectedClientId: ""
     signal activateRequested(var clientId)
 
@@ -84,9 +85,9 @@ Item {
 
         Flow {
             id: cardFlow
-            x: Theme.spacingS
+            x: (parent.width - width) / 2
             y: Theme.spacingXS
-            width: parent.width - Theme.spacingL
+            width: Math.min(parent.width, root.maximumContentWidth > 0 ? root.maximumContentWidth : parent.width) - Theme.spacingL
             spacing: Theme.spacingS
 
             Repeater {
