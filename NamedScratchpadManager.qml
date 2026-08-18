@@ -16,6 +16,8 @@ Item {
     property string deleteId: ""
     property string deleteName: ""
 
+    focus: visible
+
     signal closeRequested()
     signal storeChanged(var store)
 
@@ -94,8 +96,7 @@ Item {
             ? Definitions.updateDefinition(currentStore(), editingDefinition.id, fields)
             : Definitions.createDefinition(currentStore(), fields);
         if (persist(result)) {
-            editingDefinition = null;
-            mode = "list";
+            returnToList();
         }
     }
 
@@ -107,14 +108,35 @@ Item {
 
     function navigateBack() {
         if (mode === "editor" || mode === "delete") {
-            errorText = "";
-            mode = "list";
+            returnToList();
             return;
         }
         closeRequested();
     }
 
+    function returnToList() {
+        editingDefinition = null;
+        deleteId = "";
+        deleteName = "";
+        errorText = "";
+        mode = "list";
+        Qt.callLater(() => root.forceActiveFocus());
+    }
+
     Component.onCompleted: refresh()
+    onVisibleChanged: {
+        if (visible && mode === "list")
+            Qt.callLater(() => root.forceActiveFocus());
+    }
+    onModeChanged: {
+        if (mode === "delete" || mode === "list")
+            Qt.callLater(() => root.forceActiveFocus());
+    }
+
+    Keys.onEscapePressed: event => {
+        navigateBack();
+        event.accepted = true;
+    }
 
     Column {
         anchors.fill: parent
@@ -127,6 +149,8 @@ Item {
             DankActionButton {
                 iconName: "arrow_back"
                 buttonSize: Theme.iconSize + Theme.spacingM
+                tooltipText: "Back"
+                tooltipSide: "bottom"
                 onClicked: root.navigateBack()
             }
             Column {
@@ -216,12 +240,14 @@ Item {
                             checked: definition.enabled
                             onToggled: isChecked => root.persist(Definitions.setDefinitionEnabled(root.currentStore(), definition.id, isChecked))
                         }
-                        DankActionButton { id: editButton; iconName: "edit"; buttonSize: Theme.iconSize + Theme.spacingM; onClicked: root.openEdit(definition) }
+                        DankActionButton { id: editButton; iconName: "edit"; buttonSize: Theme.iconSize + Theme.spacingM; tooltipText: "Edit"; tooltipSide: "top"; onClicked: root.openEdit(definition) }
                         DankActionButton {
                             id: deleteButton
                             iconName: "delete"
                             iconColor: Theme.error
                             buttonSize: Theme.iconSize + Theme.spacingM
+                            tooltipText: "Delete"
+                            tooltipSide: "top"
                             onClicked: { root.deleteId = definition.id; root.deleteName = definition.displayName; root.mode = "delete"; }
                         }
                     }
@@ -276,7 +302,7 @@ Item {
                     spacing: Theme.spacingS
                     layoutDirection: Qt.RightToLeft
                     DankButton { text: "Save"; backgroundColor: Theme.primary; textColor: Theme.primaryText; onClicked: root.saveEditor() }
-                    DankButton { text: "Cancel"; onClicked: { root.errorText = ""; root.mode = "list"; } }
+                    DankButton { text: "Cancel"; onClicked: root.returnToList() }
                 }
             }
         }
@@ -298,8 +324,8 @@ Item {
                     width: parent.width
                     spacing: Theme.spacingS
                     layoutDirection: Qt.RightToLeft
-                    DankButton { text: "Delete"; backgroundColor: Theme.error; textColor: Theme.primaryText; onClicked: { if (root.persist(Definitions.deleteDefinition(root.currentStore(), root.deleteId))) root.mode = "list"; } }
-                    DankButton { text: "Cancel"; onClicked: root.mode = "list" }
+                    DankButton { text: "Delete"; backgroundColor: Theme.error; textColor: Theme.primaryText; onClicked: { if (root.persist(Definitions.deleteDefinition(root.currentStore(), root.deleteId))) root.returnToList(); } }
+                    DankButton { text: "Cancel"; onClicked: root.returnToList() }
                 }
             }
         }

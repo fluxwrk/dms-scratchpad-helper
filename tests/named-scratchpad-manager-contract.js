@@ -93,6 +93,21 @@ assert.ok(managerQml.includes("Definitions.setDefinitionEnabled"));
 assert.ok(managerQml.includes('if (mode === "editor" || mode === "delete")'));
 assert.ok(managerQml.includes("onClicked: root.navigateBack()"));
 assert.ok(!managerQml.includes('root.mode === "editor" ? root.mode = "list" : root.closeRequested()'));
+assert.ok(managerQml.includes("Keys.onEscapePressed: event =>"));
+assert.ok(managerQml.includes("navigateBack();"));
+assert.ok(managerQml.includes("event.accepted = true;"));
+assert.ok(managerQml.includes("function returnToList()"));
+assert.ok(managerQml.includes("Qt.callLater(() => root.forceActiveFocus());"));
+assert.ok(managerQml.includes('if (mode === "delete" || mode === "list")'));
+assert.ok(managerQml.includes('tooltipText: "Back"'));
+assert.ok(managerQml.includes('tooltipText: "Edit"'));
+assert.ok(managerQml.includes('tooltipText: "Delete"'));
+const navigateBackStart = managerQml.indexOf("function navigateBack()");
+const returnToListStart = managerQml.indexOf("function returnToList()", navigateBackStart);
+const navigateBackBody = managerQml.slice(navigateBackStart, returnToListStart);
+assert.ok(navigateBackBody.includes("returnToList();"));
+assert.ok(!navigateBackBody.includes("persist(") && !navigateBackBody.includes("deleteDefinition"));
+assert.ok(!navigateBackBody.includes("saveEditor"));
 assert.ok(configQml.includes("Definitions.generatedContentState"));
 assert.ok(!managerQml.includes(".generate()"));
 assert.ok(!managerQml.includes("reloadMango"));
@@ -100,5 +115,14 @@ assert.ok(!managerQml.includes("Process"));
 assert.ok(!managerQml.includes("launchCommand]") && !managerQml.includes("commandField.text]"));
 assert.ok(!pickerQml.includes("toggle_named_scratchpad"));
 assert.ok(!widgetQml.includes("toggle_named_scratchpad"));
+
+const settingsQml = fs.readFileSync("Settings.qml", "utf8");
+assert.ok(settingsQml.includes('tooltipText: "More information"'));
+
+const ccDetailStart = widgetQml.indexOf("ccDetailContent: Component {");
+assert.notEqual(ccDetailStart, -1);
+const ccDetailSource = widgetQml.slice(ccDetailStart);
+assert.ok(!ccDetailSource.includes("Keys.onPressed"));
+assert.ok(!ccDetailSource.includes("selectedClientId:"));
 
 console.log("named scratchpad manager contract: ok");

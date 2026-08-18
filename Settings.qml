@@ -168,6 +168,8 @@ PluginSettings {
             iconName: "info"
             iconColor: root.showNamedInfo ? Theme.primary : Theme.surfaceVariantText
             buttonSize: Theme.iconSize + Theme.spacingS
+            tooltipText: "More information"
+            tooltipSide: "bottom"
             onClicked: root.showNamedInfo = !root.showNamedInfo
         }
     }
