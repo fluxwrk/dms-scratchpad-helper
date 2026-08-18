@@ -1,5 +1,9 @@
 # Scratchpad Helper
 
+<p align="center">
+  <img src="assets/scratchpad-picker.png" alt="Scratchpad Helper picker">
+</p>
+
 Scratchpad Helper is a DankMaterialShell plugin for mango that adds a visual scratchpad picker to DankBar. It supports standard scratchpads, cached previews, and optional managed named scratchpads.
 
 ## Requirements
@@ -53,12 +57,16 @@ When `grim` is available, the plugin saves a preview before stashing. The DankBa
 
 ## Named scratchpads
 
+<p align="center">
+  <img src="assets/named-scratchpad-manager.png" alt="Scratchpad Helper named scratchpad manager">
+</p>
+
 Named scratchpad management is optional:
 
 1. Enable **Named Scratchpad Manager** in the plugin settings.
 
 2. Add this line once to `~/.config/mango/config.conf`:
-
+   
    ```ini
    source-optional=~/.config/mango/scratchpad-helper.conf
    ```
