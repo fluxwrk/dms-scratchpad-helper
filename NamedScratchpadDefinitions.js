@@ -7,6 +7,7 @@ var MAX_IDENTITY_BYTES = 120;
 var MAX_COMMAND_BYTES = 220;
 var MAX_RULE_VALUE_BYTES = 240;
 var MAX_LINE_BYTES = 480;
+var MAX_DEFINITIONS = 200;
 
 function utf8Length(value) {
     if (hasInvalidUnicode(String(value)))
@@ -59,7 +60,8 @@ function canonicalDefinition(raw) {
         "appId": appId,
         "title": title,
         "launchCommand": trim(raw.launchCommand),
-        "enabled": raw.enabled !== false,
+        "enabled": raw.enabled === true,
+        "enabledValid": typeof raw.enabled === "boolean",
         "creationOrder": Number.isSafeInteger(raw.creationOrder) && raw.creationOrder >= 0 ? raw.creationOrder : 0,
         "canonicalKey": JSON.stringify([appId, title]),
         "appIdPattern": appId ? exactPattern(appId) : "",
@@ -107,6 +109,9 @@ function validateDefinitions(rawDefinitions) {
     let ids = {};
     let keys = {};
 
+    if (source.length > MAX_DEFINITIONS)
+        addError(errors, "", "definitions", "too-many", "A maximum of " + MAX_DEFINITIONS + " named scratchpads is supported.");
+
     definitions.forEach(function(definition) {
         if (!definition.id)
             addError(errors, definition.id, "id", "required", "A stable ID is required.");
@@ -117,6 +122,9 @@ function validateDefinitions(rawDefinitions) {
         if (!definition.displayName)
             addError(errors, definition.id, "displayName", "required", "Display name is required.");
         validateField(definition, "displayName", definition.displayName, MAX_NAME_BYTES, errors);
+
+        if (!definition.enabledValid)
+            addError(errors, definition.id, "enabled", "boolean", "Enabled state must be true or false.");
 
         if (!definition.appId && !definition.title)
             addError(errors, definition.id, "identity", "required", "Application ID or window title is required.");
@@ -279,6 +287,8 @@ function loadStore(rawStore) {
     if (typeof rawStore !== "object" || Array.isArray(rawStore) ||
             Number(rawStore.schemaVersion) !== SCHEMA_VERSION || !Array.isArray(rawStore.definitions))
         return {"valid": false, "store": null, "error": "Stored named scratchpads could not be read."};
+    if (rawStore.definitions.length > MAX_DEFINITIONS)
+        return {"valid": false, "store": null, "error": "Stored named scratchpads exceed the supported limit of " + MAX_DEFINITIONS + "."};
     return {"valid": true, "store": {"schemaVersion": SCHEMA_VERSION, "definitions": rawStore.definitions.slice()}, "error": ""};
 }
 
@@ -359,12 +369,15 @@ function expectedContent(rawStore) {
 }
 
 function generatedContentState(rawStore, existingContent, knownHash) {
-    const ownership = ownershipState(existingContent, knownHash);
-    if (ownership.state === "conflict")
-        return {"state": "conflict", "pending": false, "expectedContent": "", "errors": []};
     const expected = expectedContent(rawStore);
     if (!expected.valid)
         return {"state": "invalid", "pending": false, "expectedContent": "", "errors": expected.errors};
+    if (existingContent !== null && existingContent !== undefined && !knownHash &&
+            String(existingContent) === expected.content)
+        return {"state": "recoverable", "pending": true, "expectedContent": expected.content, "errors": []};
+    const ownership = ownershipState(existingContent, knownHash);
+    if (ownership.state === "conflict")
+        return {"state": "conflict", "pending": false, "expectedContent": "", "errors": []};
     const pending = existingContent === null || existingContent === undefined || String(existingContent) !== expected.content;
     return {"state": pending ? "pending" : "current", "pending": pending, "expectedContent": expected.content, "errors": []};
 }

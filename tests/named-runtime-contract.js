@@ -29,6 +29,8 @@ assert.deepEqual(Object.keys(classify([named(1, "com.example.ghostty")], undefin
 assert.deepEqual(Object.keys(classify([named(1, "com.example.ghostty")], store([definition({enabled: false})]))), []);
 assert.deepEqual(Object.keys(classify([named(1, "com.example.ghostty")], {schemaVersion: 99, definitions: []})), []);
 assert.deepEqual(Object.keys(classify([named(1, "com.example.ghostty")], undefined, true, false)), []);
+for (const enabled of ["true", "false", 1, 0, null, undefined, {}, []])
+    assert.deepEqual(Object.keys(classify([named(1, "com.example.ghostty")], store([definition({enabled})]))), []);
 
 result = classify([named(2, "app", "Exact")], store([definition({appId: "", title: "Exact"})]));
 assert.equal(result["2"].command, "toggle_named_scratchpad,none,^Exact$,ghostty --class=com.example.ghostty");

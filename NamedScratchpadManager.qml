@@ -105,6 +105,15 @@ Item {
         return "Title: " + definition.title;
     }
 
+    function navigateBack() {
+        if (mode === "editor" || mode === "delete") {
+            errorText = "";
+            mode = "list";
+            return;
+        }
+        closeRequested();
+    }
+
     Component.onCompleted: refresh()
 
     Column {
@@ -118,7 +127,7 @@ Item {
             DankActionButton {
                 iconName: "arrow_back"
                 buttonSize: Theme.iconSize + Theme.spacingM
-                onClicked: root.mode === "editor" ? root.mode = "list" : root.closeRequested()
+                onClicked: root.navigateBack()
             }
             Column {
                 width: parent.width - Theme.iconSize - Theme.spacingM * 2 - addButton.width

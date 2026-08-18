@@ -10,6 +10,7 @@ import "ScratchpadModel.js" as ScratchpadModel
 import "NamedScratchpadDefinitions.js" as NamedDefinitions
 import "NamedScratchpadRuntime.js" as NamedRuntime
 import "StashWorkflow.js" as StashWorkflow
+import "MangoConfigPaths.js" as MangoConfigPaths
 
 PluginComponent {
     id: root
@@ -31,7 +32,8 @@ PluginComponent {
     property string namedConfigContent: ""
     property bool namedConfigReadable: false
 
-    readonly property url namedConfigUrl: StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/mango/scratchpad-helper.conf"
+    readonly property string homePath: Paths.strip(StandardPaths.writableLocation(StandardPaths.HomeLocation))
+    readonly property url namedConfigUrl: Paths.toFileUrl(MangoConfigPaths.helperConfigPath(homePath))
     readonly property var namedPluginSettings: SettingsData.getPluginSettingsForPlugin(pluginId)
     readonly property var namedDefinitionStore: namedPluginSettings.namedManagerStore === undefined ? null : namedPluginSettings.namedManagerStore
     readonly property bool namedManagerEnabled: SettingsData.getPluginSetting(pluginId, "namedManagerEnabled", false)

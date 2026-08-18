@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Common
 import qs.Services
 import "NamedScratchpadDefinitions.js" as Definitions
+import "MangoConfigPaths.js" as MangoConfigPaths
 
 Item {
     id: root
@@ -13,13 +14,11 @@ Item {
     visible: false
 
     readonly property string pluginId: "scratchpadHelper"
-    readonly property string includeLine: "source-optional=~/.config/mango/scratchpad-helper.conf"
-    // StandardPaths and FileView use URLs. External programs require decoded
-    // native paths. Keep both forms named and cross the boundary only here.
-    readonly property url configBaseUrl: StandardPaths.writableLocation(StandardPaths.ConfigLocation)
-    readonly property string configDirPath: toLocalPath(configBaseUrl) + "/mango"
-    readonly property string targetPath: configDirPath + "/scratchpad-helper.conf"
-    readonly property string mainConfigPath: configDirPath + "/config.conf"
+    readonly property string homePath: toLocalPath(StandardPaths.writableLocation(StandardPaths.HomeLocation))
+    readonly property string includeLine: MangoConfigPaths.helperIncludeLine()
+    readonly property string configDirPath: MangoConfigPaths.configDirectory(homePath)
+    readonly property string targetPath: MangoConfigPaths.helperConfigPath(homePath)
+    readonly property string mainConfigPath: MangoConfigPaths.mainConfigPath(homePath)
     readonly property url targetFileUrl: toFileUrl(targetPath)
     readonly property url mainConfigFileUrl: toFileUrl(mainConfigPath)
     readonly property var pluginSettings: SettingsData.getPluginSettingsForPlugin(pluginId)
@@ -82,10 +81,15 @@ Item {
         }
         const state = Definitions.generatedContentState(definitionStore,
             targetExists ? targetContent : null, knownHash);
-        ownership = state.state === "conflict" ? "conflict" : ownership;
+        if (state.state === "conflict" || state.state === "recoverable")
+            ownership = state.state;
+        else if (state.state === "current")
+            ownership = "owned";
+        else if (state.state === "pending" && !targetExists)
+            ownership = "absent";
         if (state.state === "invalid")
             storeError = "Some stored named scratchpads need attention.";
-        pendingChanges = state.state === "pending";
+        pendingChanges = state.state === "pending" || state.state === "recoverable";
         generatedValid = state.state === "current" && includeConfigured;
         reloadNeeded = generatedValid && appliedHash !== knownHash;
     }
@@ -179,9 +183,11 @@ Item {
             _finalizeOperation(false);
             return;
         }
-        const ownershipResult = Definitions.ownershipState(targetExists ? targetContent : null, knownHash);
-        ownership = ownershipResult.state;
-        if (ownership === "conflict") {
+        const contentState = Definitions.generatedContentState(definitionStore,
+            targetExists ? targetContent : null, knownHash);
+        ownership = contentState.state === "recoverable" ? "recoverable" :
+            Definitions.ownershipState(targetExists ? targetContent : null, knownHash).state;
+        if (contentState.state === "conflict" || contentState.state === "invalid") {
             errorText = "The existing helper file does not match Scratchpad Helper's last successful generation.";
             _updateSummary();
             _finalizeOperation(false);
@@ -340,24 +346,42 @@ Item {
             return;
         busy = true;
         _run(["mango", "-c", mainConfigPath, "-p"], function(exitCode, output) {
-            if (!root._parserAccepted(exitCode, output)) {
-                root._fail("Mango configuration no longer validates; reload was not requested. " + root._cleanDiagnostic(output));
-                return;
-            }
-            MangoService.dispatch("reload_config", function(reply) {
-                let accepted = false;
-                try { accepted = JSON.parse(reply).success === true; } catch (_) {}
-                if (!accepted) {
-                    root._fail("Mango did not accept the reload request.");
+            try {
+                if (!root._parserAccepted(exitCode, output)) {
+                    root._fail("Mango configuration no longer validates; reload was not requested. " + root._cleanDiagnostic(output));
                     return;
                 }
-                root.reloadNeeded = false;
-                SettingsData.setPluginSetting(root.pluginId, "namedManagerAppliedHash", root.knownHash);
-                root.status = "Reload requested";
-                root.detail = "Mango is processing its configuration.";
-                root._finalizeOperation(true);
-            });
+                if (!MangoService.available) {
+                    root._fail("DMS MangoService is not connected; reload was not requested.");
+                    return;
+                }
+                const generatedHash = root.knownHash;
+                MangoService.dispatch("reload_config", function(reply) {
+                    root._completeReload(reply, generatedHash);
+                });
+            } catch (error) {
+                root._fail("Could not request Mango reload: " + error);
+            }
         });
+    }
+
+    function _completeReload(reply, generatedHash) {
+        try {
+            let accepted = false;
+            try { accepted = JSON.parse(reply).success === true; } catch (_) {}
+            if (!accepted) {
+                _fail("Mango did not accept the reload request.");
+                return;
+            }
+            SettingsData.setPluginSetting(pluginId, "namedManagerAppliedHash", generatedHash);
+            reloadNeeded = false;
+            status = "Reload requested";
+            detail = "Mango is processing its configuration.";
+            _finalizeOperation(true);
+        } catch (error) {
+            _fail("Mango accepted the reload, but its applied state could not be saved: " + error,
+                "Couldn't save applied-config state.");
+        }
     }
 
     function copyIncludeLine() {

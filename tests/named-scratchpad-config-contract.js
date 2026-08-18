@@ -10,6 +10,10 @@ const source = fs.readFileSync("NamedScratchpadDefinitions.js", "utf8").replace(
 const context = {};
 vm.createContext(context);
 vm.runInContext(source, context);
+const pathSource = fs.readFileSync("MangoConfigPaths.js", "utf8").replace(/^\.pragma library\s*/, "");
+const pathContext = {};
+vm.createContext(pathContext);
+vm.runInContext(pathSource, pathContext);
 
 const valid = overrides => ({
     id: "scratch-terminal",
@@ -24,6 +28,7 @@ const valid = overrides => ({
 const codes = result => result.errors.map(error => error.code);
 
 assert.equal(context.SCHEMA_VERSION, 1);
+assert.equal(context.MAX_DEFINITIONS, 200);
 assert.equal(context.defaultStore().schemaVersion, 1);
 assert.deepEqual(Array.from(context.defaultStore().definitions), []);
 
@@ -33,6 +38,24 @@ for (const definition of [
     valid({appId: "app", title: "fixed-title"}),
     valid({enabled: false})
 ]) assert.equal(context.validateDefinitions([definition]).valid, true);
+
+for (const enabled of ["true", "false", 1, 0, null, undefined, {}, []]) {
+    const result = context.validateDefinitions([valid({enabled})]);
+    assert.equal(result.valid, false);
+    assert.ok(codes(result).includes("boolean"));
+    assert.equal(context.serializeDefinitions([valid({enabled})]).valid, false);
+}
+const missingEnabled = valid();
+delete missingEnabled.enabled;
+assert.ok(codes(context.validateDefinitions([missingEnabled])).includes("boolean"));
+assert.equal(context.serializeDefinitions([missingEnabled]).valid, false);
+assert.equal(context.validateDefinitions([valid({enabled: true})]).valid, true);
+assert.equal(context.validateDefinitions([valid({enabled: false})]).valid, true);
+
+const tooMany = Array.from({length: context.MAX_DEFINITIONS + 1}, (_, index) =>
+    valid({id: "definition-" + index, appId: "app-" + index, creationOrder: index}));
+assert.ok(codes(context.validateDefinitions(tooMany)).includes("too-many"));
+assert.equal(context.loadStore({schemaVersion: 1, definitions: tooMany}).valid, false);
 
 assert.ok(codes(context.validateDefinitions([valid({displayName: "   "})])).includes("required"));
 assert.ok(codes(context.validateDefinitions([valid({appId: "", title: ""})])).includes("required"));
@@ -92,6 +115,26 @@ assert.equal(context.ownershipState(serialized.content, "").state, "conflict");
 assert.equal(context.ownershipState(serialized.content + "# tampered\n", hash).state, "conflict");
 assert.equal(context.ownershipState(serialized.content, hash).state, "owned");
 
+const recoveryStore = {schemaVersion: 1, definitions: serialized.definitions};
+const recoverable = context.generatedContentState(recoveryStore, serialized.content, "");
+assert.equal(recoverable.state, "recoverable");
+assert.equal(recoverable.pending, true);
+assert.equal(recoverable.expectedContent, serialized.content);
+assert.equal(context.generatedContentState(recoveryStore, serialized.content + "#", "").state, "conflict");
+const otherSerialization = context.serializeDefinitions([valid({id: "other", appId: "other"})]).content;
+assert.equal(context.generatedContentState(recoveryStore, otherSerialization, "").state, "conflict");
+// Recovery establishes generated ownership only. Applied/reloaded state remains
+// an independent persisted value and is not part of generatedContentState().
+assert.equal(Object.hasOwn(recoverable, "appliedHash"), false);
+assert.notEqual(recoverable.state, "current");
+
+const homePath = "/home/tester";
+assert.equal(pathContext.configDirectory(homePath), "/home/tester/.config/mango");
+assert.equal(pathContext.helperConfigPath(homePath), "/home/tester/.config/mango/scratchpad-helper.conf");
+assert.equal(pathContext.mainConfigPath(homePath), "/home/tester/.config/mango/config.conf");
+assert.equal(pathContext.helperIncludeLine(), "source-optional=~/.config/mango/scratchpad-helper.conf");
+assert.equal(pathContext.helperConfigPath(homePath), pathContext.helperConfigPath(homePath, "/custom/xdg"));
+
 const target = "/home/test/.config/mango/scratchpad-helper.conf";
 assert.equal(context.detectsExpectedInclude("source-optional=~/.config/mango/scratchpad-helper.conf\n", target), true);
 assert.equal(context.detectsExpectedInclude("  source-optional = " + target + "  # helper\n", target), true);
@@ -105,8 +148,12 @@ assert.equal(shouldGenerate(true, true), true);
 
 const qmlSource = fs.readFileSync("NamedScratchpadConfig.qml", "utf8");
 assert.ok(qmlSource.includes("atomicWrites: true"));
-assert.ok(qmlSource.includes("readonly property url configBaseUrl: StandardPaths.writableLocation(StandardPaths.ConfigLocation)"));
-assert.ok(qmlSource.includes("readonly property string configDirPath: toLocalPath(configBaseUrl) + \"/mango\""));
+assert.ok(qmlSource.includes("StandardPaths.writableLocation(StandardPaths.HomeLocation)"));
+assert.ok(qmlSource.includes("MangoConfigPaths.configDirectory(homePath)"));
+assert.ok(qmlSource.includes("MangoConfigPaths.helperConfigPath(homePath)"));
+assert.ok(qmlSource.includes("MangoConfigPaths.mainConfigPath(homePath)"));
+assert.ok(qmlSource.includes("MangoConfigPaths.helperIncludeLine()"));
+assert.ok(!qmlSource.includes("StandardPaths.ConfigLocation"));
 assert.ok(qmlSource.includes("return Paths.strip(fileUrl);"));
 assert.ok(qmlSource.includes("return Paths.toFileUrl(localPath);"));
 assert.ok(qmlSource.includes("path: root.targetFileUrl"));
@@ -133,10 +180,18 @@ const functionBody = name => {
 assert.equal((qmlSource.match(/\bbusy\s*=\s*false;/g) || []).length, 1);
 assert.ok(functionBody("generate").includes("busy = true;"));
 assert.ok(functionBody("reloadMango").includes("busy = true;"));
+assert.ok(functionBody("reloadMango").includes("root._completeReload(reply, generatedHash);"));
+assert.ok(functionBody("reloadMango").includes("catch (error)"));
+assert.ok(functionBody("_completeReload").includes('SettingsData.setPluginSetting(pluginId, "namedManagerAppliedHash", generatedHash);'));
+assert.ok(functionBody("_completeReload").includes("_finalizeOperation(true);"));
+assert.ok(functionBody("_completeReload").includes("catch (error)"));
+assert.ok(functionBody("_completeReload").includes("_fail("));
+assert.ok(functionBody("_completeReload").indexOf("setPluginSetting") < functionBody("_completeReload").indexOf("reloadNeeded = false"));
 assert.ok(functionBody("_finalizeOperation").includes("busy = false;"));
 assert.ok(functionBody("_completeSuccess").includes("_finalizeOperation(true);"));
 assert.ok(functionBody("_fail").includes("_finalizeOperation(false);"));
-assert.ok(functionBody("generate").includes('ownership === "conflict"'));
+assert.ok(functionBody("generate").includes('contentState.state === "conflict"'));
+assert.ok(functionBody("generate").includes('contentState.state === "recoverable"'));
 assert.ok(functionBody("generate").includes("_finalizeOperation(false);"));
 assert.ok(functionBody("_validateCandidate").includes("root._fail("));
 assert.ok(functionBody("_validateIntegrated").includes("root._rollback("));
@@ -147,6 +202,12 @@ assert.ok(qmlSource.includes('callback(-1, "Could not create the process runner.
 assert.ok(qmlSource.includes("callback(-1, String(error));"));
 assert.ok(!qmlSource.includes("ScratchpadHelper.NamedConfig"));
 assert.ok(!qmlSource.includes("_trace("));
+
+const daemonSource = fs.readFileSync("ScratchpadDaemon.qml", "utf8");
+assert.ok(daemonSource.includes("StandardPaths.writableLocation(StandardPaths.HomeLocation)"));
+assert.ok(daemonSource.includes("MangoConfigPaths.helperConfigPath(homePath)"));
+assert.ok(!daemonSource.includes("StandardPaths.ConfigLocation"));
+assert.ok(daemonSource.includes('return state.state === "current";'));
 
 const spacedPath = "/tmp/Scratchpad Helper/config.conf";
 const spacedUrl = nodeUrl.pathToFileURL(spacedPath);
