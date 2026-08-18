@@ -15,11 +15,17 @@ Scratchpad Helper is a DankMaterialShell plugin for mango that adds a visual scr
 
 ## Installation
 
-Until the plugin is available through the DMS plugin registry, copy or symlink this repository into the DMS plugins directory:
+Scratchpad Helper is available in the DMS plugin registry:
 
 ```sh
-mkdir -p ~/.config/DankMaterialShell/plugins
-ln -s /path/to/dms-scratchpad-helper ~/.config/DankMaterialShell/plugins/ScratchpadHelper
+dms plugins install scratchpadHelper
+```
+
+You can also install it manually:
+
+```sh
+git clone https://github.com/fluxwrk/dms-scratchpad-helper \
+  ~/.config/DankMaterialShell/plugins/ScratchpadHelper
 dms ipc call plugin-scan scan
 ```
 
@@ -83,5 +89,5 @@ A **Managed** card is linked to one of your definitions and can be toggled from 
 
 ## Known issues
 
-- mango 0.16.0 has an upstream bug that can affect helper-triggered stashing if the target window disappears during the operation. See [mango issue #1289](https://github.com/mangowm/mango/issues/1289).
-- DMS 1.5.3 generates an outdated mango action for **Toggle Named Scratchpad** keybinds. See [DMS issue #3102](https://github.com/AvengeMedia/DankMaterialShell/issues/3102).
+- mango 0.16.0 has an upstream bug that can affect helper-triggered stashing if the target window disappears during the operation. See [mango issue #1289](https://github.com/mangowm/mango/issues/1289)
+- DMS 1.5.3 generates an outdated mango action for **Toggle Named Scratchpad** keybinds. See [DMS issue #3102](https://github.com/AvengeMedia/DankMaterialShell/issues/3102)

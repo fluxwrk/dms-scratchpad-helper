@@ -203,7 +203,7 @@ function serializeDefinitions(rawDefinitions) {
     return {"valid": true, "content": lines.join("\n") + "\n", "errors": [], "warnings": result.warnings, "definitions": result.definitions};
 }
 
-// Small in-process SHA-256 implementation. Hashes UTF-8 bytes and never invokes a process.
+// Hash generated config in-process for ownership checks without spawning a command
 function contentHash(input) {
     const text = unescape(encodeURIComponent(String(input)));
     const rightRotate = function(value, amount) { return (value >>> amount) | (value << (32 - amount)); };

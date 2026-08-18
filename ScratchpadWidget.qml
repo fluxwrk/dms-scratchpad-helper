@@ -14,8 +14,8 @@ PluginComponent {
     layerNamespacePlugin: "scratchpad-helper"
     property var popoutService: null
 
-    // DetailHost creates a fresh component without plugin host injection, so all
-    // shared reads use the manifest ID rather than the injected pluginId.
+    // Control Center detail instances lack plugin host injection,
+    // so shared state uses the manifest ID explicitly
     readonly property var scratchpadClients: PluginService.getGlobalVar(scratchpadPluginId, "clients", [])
     readonly property bool isMango: PluginService.getGlobalVar(scratchpadPluginId, "isMango", CompositorService.isMango)
     readonly property bool serviceAvailable: PluginService.getGlobalVar(scratchpadPluginId, "serviceAvailable", false)

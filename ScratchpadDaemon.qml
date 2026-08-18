@@ -351,8 +351,7 @@ PluginComponent {
         if (client.is_scratchpad !== true)
             return false;
 
-        // Mango client_active restores the exact minimized target, selects its
-        // restored tag through tag_client, and focuses it before returning.
+        // Restore the exact scratchpad window by Mango client ID
         MangoService.dispatch("focusid client," + id, reply => {
             let success = false;
             try {
